@@ -1,0 +1,45 @@
+//
+//  XZFShowImageCollectionViewCell.swift
+//  XZFChooseImage
+//
+//  Created by brks on 2018/1/23.
+//  Copyright © 2018年 borrow. All rights reserved.
+//
+
+import UIKit
+import Photos
+
+class XZFShowImageCollectionViewCell: UICollectionViewCell {
+    @IBOutlet weak var imgView: UIImageView!
+    @IBOutlet weak var chooseBtn: UIButton!
+    
+    @IBAction func chooseBtnClicked(_ sender: UIButton) {
+        
+    }
+    
+    //weak: 定制cell
+    func customCell(asset: PHAsset, indexPath: IndexPath) {
+        let requestOptions = PHImageRequestOptions()
+//        requestOptions.deliveryMode = .highQualityFormat
+//        requestOptions.isSynchronous = true
+//        requestOptions.isNetworkAccessAllowed = true
+        requestOptions.resizeMode = .fast
+
+         weak var weakSelf = self
+        let manager = PHImageManager.default()
+        manager.requestImage(for: asset, targetSize: self.getTargetSize(), contentMode: .aspectFit, options: requestOptions, resultHandler: { (image, dic) in
+            if image != nil {
+                weakSelf?.imgView.image = image
+            }
+        })
+    }
+    
+    //weak: 获取显示的尺寸
+    func getTargetSize() -> CGSize {
+//        let scale = UIScreen.main.scale
+//        let targetSize = CGSize(width: kScreenWidth * scale, height: kScreenHeight * scale)
+        let targetSize = CGSize(width: 200, height: 200)
+        return targetSize
+    }
+
+}

@@ -1,0 +1,179 @@
+//
+//  XZFChooseImagesVC.swift
+//  XZFChooseImage
+//
+//  Created by brks on 2018/1/22.
+//  Copyright © 2018年 borrow. All rights reserved.
+//
+
+import UIKit
+import Photos
+
+typealias CompletedBlock = (([UIImage])) -> ()
+
+class XZFChooseImagesVC: UINavigationController {
+    init(maxCount: Int, completeBlock completedBlock: @escaping CompletedBlock) {
+        let chooseView = XZFChooseImagesView.init(maxCount: maxCount, completeBlock: completedBlock)
+    
+        super.init(rootViewController: chooseView)
+    }
+    
+    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
+        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
+    }
+    
+    required init?(coder aDecoder: NSCoder) {
+        super.init(coder: aDecoder)
+    }
+    
+}
+
+//MARK: - 初始化根视图
+class XZFChooseImagesView: UIViewController, UITableViewDelegate, UITableViewDataSource {
+    var allAlbums: [PHAssetCollection] = []
+    var mCount = 1
+    var completedBlock: CompletedBlock?
+    
+    var tableView: UITableView?
+    let kReuseIdentifier = "XZFChooseImgTableViewCell"
+    
+    //初始化
+    init(maxCount: Int, completeBlock completedBlock: CompletedBlock?) {
+        super.init(nibName: nil, bundle: nil)
+        
+        self.mCount = maxCount
+        self.completedBlock = completedBlock
+        
+    }
+    
+    required init?(coder aDecoder: NSCoder) {
+        super.init(coder: aDecoder)
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        customView()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        getAllAlbums()
+    }
+    
+    //定制界面
+    func customView() {
+        self.title = "相册"
+        self.navigationItem.rightBarButtonItem = UIBarButtonItem.init(title: "取消", style: .plain, target: self, action: #selector(dismissEvent))
+        
+        self.tableView = UITableView(frame: UIScreen.main.bounds, style: .plain)
+        self.tableView?.separatorStyle = .none
+        self.tableView?.delegate = self
+        self.tableView?.dataSource = self
+        self.tableView?.rowHeight = 70
+        self.tableView?.register(XZFChooseImgTableViewCell.self, forCellReuseIdentifier: kReuseIdentifier)
+        self.view.addSubview(self.tableView!)
+        
+    }
+    
+    //取消按钮点击事件
+    @objc func dismissEvent() {
+        self.dismiss(animated: true, completion: nil)
+    }
+    
+    //获取所有的相册
+    func getAllAlbums() {
+        allAlbums.removeAll()
+        //所有智能相册
+        let smartAlbums = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: .albumRegular, options: nil)
+
+         weak var weakSelf = self
+        DispatchQueue.global().async {
+            smartAlbums.enumerateObjects({ (collection, index, stop) in
+                if (collection.isKind(of: PHAssetCollection.self)) {
+                    if (collection.localizedTitle == "Recently Added" || collection.localizedTitle == "All Photos") {
+                        weakSelf?.allAlbums.append(collection)
+                    }
+                    
+                }
+            })
+            
+            DispatchQueue.main.async {
+                weakSelf?.tableView?.reloadData()
+            }
+        }
+        
+    }
+}
+
+//MARK: - UITableViewDelegate, UITableViewDataSource
+extension XZFChooseImagesView {
+    func numberOfSections(in tableView: UITableView) -> Int {
+        return 1
+    }
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return allAlbums.count
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        
+        let cell = tableView.dequeueReusableCell(withIdentifier: kReuseIdentifier, for: indexPath) as! XZFChooseImgTableViewCell
+        
+        let phCollection = allAlbums[indexPath.row]
+        let title = phCollection.localizedTitle?.chinese()
+        
+        let options = PHFetchOptions()
+        options.sortDescriptors = [NSSortDescriptor.init(key: "creationDate", ascending: true)]
+        options.predicate = NSPredicate.init(format: "mediaType == %ld", PHAssetMediaType.image.rawValue)
+        let fetchResult = PHAsset.fetchAssets(in: phCollection, options: options)
+        let count = fetchResult.count
+        
+        var img: UIImage?
+        
+        if let asset = fetchResult.lastObject {
+            let options1 = PHImageRequestOptions()
+            options1.resizeMode = .fast
+            
+            PHImageManager.default().requestImage(for: asset, targetSize: kXZFTableViewCell_ImageSize, contentMode: .aspectFill, options: options1, resultHandler: { (image, dic) in
+                img = image
+            })
+        } else {
+            img = kXZFTableViewCell_Image
+        }
+        
+        cell.customCell(image: img, title: title!, count: count)
+        
+        return cell
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let phCollection = allAlbums[indexPath.row]
+        let options = PHFetchOptions()
+        options.sortDescriptors = [NSSortDescriptor.init(key: "creationDate", ascending: true)]
+        options.predicate = NSPredicate.init(format: "mediaType == %ld", PHAssetMediaType.image.rawValue)
+        let fetchResult = PHAsset.fetchAssets(in: phCollection, options: options)
+        
+        if fetchResult.count > 0 {
+            let vc = XZFShowImageVC()
+            vc.phCollection = phCollection
+            
+            self.navigationController?.pushViewController(vc, animated: true)
+        } else {
+            showAlert(message: "该相册没有照片", vc: self)
+        }
+    }
+}
+
+//MARK: -
+extension XZFChooseImagesView {
+    
+}
+
+
+
+
+
+
+
+
